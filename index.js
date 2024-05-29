@@ -1,105 +1,208 @@
 const express = require('express');
-const { ApolloServer, gql } = require('apollo-server-express');
+const { ApolloServer } = require('@apollo/server');
+const { expressMiddleware } = require('@apollo/server/express4');
+const { ApolloServerPluginDrainHttpServer } = require('@apollo/server/plugin/drainHttpServer');
+const { makeExecutableSchema } = require('@graphql-tools/schema');
+const { WebSocketServer } = require('ws');
+const { useServer } = require('graphql-ws/lib/use/ws');
+const http = require('http');
+const { gql } = require('graphql-tag');
+const { PubSub } = require('graphql-subscriptions');
+const { json } = require('body-parser');
+const cors = require('cors'); // Importando o middleware CORS
 
-const elementos = [
-    { id: 1, nome: "Hidrogênio", massaAtomica: 1.008, numeroAtomico: 1 },
-    { id: 2, nome: "Hélio", massaAtomica: 4.002602, numeroAtomico: 2 },
-    { id: 3, nome: "Lítio", massaAtomica: 6.94, numeroAtomico: 3 },
-    { id: 4, nome: "Berílio", massaAtomica: 9.012182, numeroAtomico: 4 },
-    { id: 5, nome: "Boro", massaAtomica: 10.81, numeroAtomico: 5 },
-    { id: 6, nome: "Carbono", massaAtomica: 12.011, numeroAtomico: 6 },
-    { id: 7, nome: "Nitrogênio", massaAtomica: 14.007, numeroAtomico: 7 },
-    { id: 8, nome: "Oxigênio", massaAtomica: 15.999, numeroAtomico: 8 },
-    { id: 9, nome: "Flúor", massaAtomica: 18.998403163, numeroAtomico: 9 },
-    { id: 10, nome: "Neônio", massaAtomica: 20.1797, numeroAtomico: 10 },
-    { id: 11, nome: "Sódio", massaAtomica: 22.98976928, numeroAtomico: 11 },
-    { id: 12, nome: "Magnésio", massaAtomica: 24.305, numeroAtomico: 12 },
-    { id: 13, nome: "Alumínio", massaAtomica: 26.9815385, numeroAtomico: 13 },
-    { id: 14, nome: "Silício", massaAtomica: 28.085, numeroAtomico: 14 },
-    { id: 15, nome: "Fósforo", massaAtomica: 30.973761998, numeroAtomico: 15 },
-    { id: 16, nome: "Enxofre", massaAtomica: 32.06, numeroAtomico: 16 },
-    { id: 17, nome: "Cloro", massaAtomica: 35.45, numeroAtomico: 17 },
-    { id: 18, nome: "Argônio", massaAtomica: 39.948, numeroAtomico: 18 },
-    { id: 19, nome: "Potássio", massaAtomica: 39.0983, numeroAtomico: 19 },
-    { id: 20, nome: "Cálcio", massaAtomica: 40.078, numeroAtomico: 20 },
-    { id: 21, nome: "Scândio", massaAtomica: 44.955908, numeroAtomico: 21 },
-    { id: 22, nome: "Titânio", massaAtomica: 47.867, numeroAtomico: 22 },
-    { id: 23, nome: "Vanádio", massaAtomica: 50.9415, numeroAtomico: 23 },
-    { id: 24, nome: "Crômio", massaAtomica: 51.9961, numeroAtomico: 24 },
-    { id: 25, nome: "Manganês", massaAtomica: 54.938044, numeroAtomico: 25 },
-    { id: 26, nome: "Ferro", massaAtomica: 55.845, numeroAtomico: 26 },
-    { id: 27, nome: "Cobalto", massaAtomica: 58.933194, numeroAtomico: 27 },
-    { id: 28, nome: "Níquel", massaAtomica: 58.6934, numeroAtomico: 28 },
-    { id: 29, nome: "Cobre", massaAtomica: 63.546, numeroAtomico: 29 },
-    { id: 30, nome: "Zinco", massaAtomica: 65.38, numeroAtomico: 30 },
-    { id: 31, nome: "Gálio", massaAtomica: 69.723, numeroAtomico: 31 },
-    { id: 32, nome: "Germânio", massaAtomica: 72.63, numeroAtomico: 32 },
-    { id: 33, nome: "Arsênio", massaAtomica: 74.921595, numeroAtomico: 33 },
-    { id: 34, nome: "Selênio", massaAtomica: 78.971, numeroAtomico: 34 },
-    { id: 35, nome: "Bromo", massaAtomica: 79.904, numeroAtomico: 35 },
-    { id: 36, nome: "Criptônio", massaAtomica: 83.798, numeroAtomico: 36 },
-    { id: 37, nome: "Rubídio", massaAtomica: 85.4678, numeroAtomico: 37 },
-    { id: 38, nome: "Estrôncio", massaAtomica: 87.62, numeroAtomico: 38 },
-    { id: 39, nome: "Ítrio", massaAtomica: 88.90584, numeroAtomico: 39 },
-    { id: 40, nome: "Zircônio", massaAtomica: 91.224, numeroAtomico: 40 },
-    { id: 41, nome: "Nióbio", massaAtomica: 92.90637, numeroAtomico: 41 },
-    { id: 42, nome: "Molibdênio", massaAtomica: 95.95, numeroAtomico: 42 },
-    { id: 44, nome: "Rutênio", massaAtomica: 101.07, numeroAtomico: 44 },
-    { id: 45, nome: "Ródio", massaAtomica: 102.90550, numeroAtomico: 45 },
-    { id: 46, nome: "Paládio", massaAtomica: 106.42, numeroAtomico: 46 },
-    { id: 47, nome: "Prata", massaAtomica: 107.8682, numeroAtomico: 47 },
-    { id: 48, nome: "Cádmio", massaAtomica: 112.414, numeroAtomico: 48 },
-    { id: 49, nome: "Índio", massaAtomica: 114.818, numeroAtomico: 49 },
-    { id: 50, nome: "Estanho", massaAtomica: 118.710, numeroAtomico: 50 },
-    { id: 51, nome: "Antimônio", massaAtomica: 121.760, numeroAtomico: 51 },
+// Dados de exemplo de usuários e atividades
+const users = [
+  { id: 1, username: "user1", email: "user1@example.com" },
+  { id: 2, username: "user2", email: "user2@example.com" },
+  { id: 3, username: "user3", email: "user2@example.com" }
 ];
 
+const activities = [
+  {
+    id: 1,
+    time: '07:00',
+    type: 'Pilates',
+    distance: '5',
+    calories: '300',
+    bpm: '120',
+    user: 'user1',
+    userImage: 'https://avatars.githubusercontent.com/u/68503415?s=400&u=961cb483c912c8c3a6ce63c9ed8793a79b81ac61&v=4',
+    likes: 10,
+    comments: 5,
+    imageUrl: 'https://images.unsplash.com/photo-1522898467493-49726bf28798?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  },
+  {
+    id: 2,
+    time: '08:00',
+    type: 'Ciclismo',
+    distance: '10',
+    calories: '500',
+    bpm: '110',
+    user: 'user2',
+    userImage: 'https://avatars.githubusercontent.com/u/68503415?s=400&u=961cb483c912c8c3a6ce63c9ed8793a79b81ac61&v=4',
+    likes: 20,
+    comments: 10,
+    imageUrl: 'https://images.unsplash.com/photo-1480264104733-84fb0b925be3?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  },
+  {
+    id: 3,
+    time: '08:00',
+    type: 'Nataçãoß',
+    distance: '10',
+    calories: '500',
+    bpm: '110',
+    user: 'user2',
+    userImage: 'https://avatars.githubusercontent.com/u/68503415?s=400&u=961cb483c912c8c3a6ce63c9ed8793a79b81ac61&v=4',
+    likes: 20,
+    comments: 10,
+    imageUrl: 'https://images.unsplash.com/photo-1480264104733-84fb0b925be3?q=80&w=1470&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
+  }
+];
+
+// Definição do esquema (schema)
 const typeDefs = gql`
-  type Elemento {
+  type User {
     id: ID!
-    nome: String
-    massaAtomica: Float
-    numeroAtomico: Int
+    username: String!
+    email: String!
+  }
+
+  type Activity {
+    id: ID!
+    time: String!
+    type: String!
+    distance: String!
+    calories: String!
+    bpm: String!
+    user: String!
+    userImage: String!
+    likes: Int!
+    comments: Int!
+    imageUrl: String!
   }
 
   type Query {
-    elementos: [Elemento]
-    elemento(nome: String!): Elemento
+    users: [User]
+    user(username: String!): User
+    activities: [Activity]
+    activity(id: ID!): Activity
   }
 
   type Mutation {
-    adicionarElemento(nome: String!, massaAtomica: Float!, numeroAtomico: Int!): Elemento
+    addUser(username: String!, email: String!): User
+    addActivity(
+      time: String!,
+      type: String!,
+      distance: String!,
+      calories: String!,
+      bpm: String!,
+      user: String!,
+      userImage: String!,
+      likes: Int!,
+      comments: Int!,
+      imageUrl: String!
+    ): Activity
   }
-  
+
+  type Subscription {
+    userAdded: User
+    activityAdded: Activity
+  }
 `;
+
+// Resolvers
+const pubsub = new PubSub();
 
 const resolvers = {
   Query: {
-    elementos: () => elementos,
-    elemento: (_, { nome }) => elementos.find(elemento => elemento.nome === nome),
+    users: () => users,
+    user: (_, { username }) => users.find(user => user.username === username),
+    activities: () => activities,
+    activity: (_, { id }) => activities.find(activity => activity.id === parseInt(id)),
   },
   Mutation: {
-    adicionarElemento: (_, { nome, massaAtomica, numeroAtomico }) => {
-      const novoElemento = {
-        id: elementos.length + 1, // Simples geração de ID, poderia ser melhorada
-        nome,
-        massaAtomica,
-        numeroAtomico,
+    addUser: (_, { username, email }) => {
+      const newUser = {
+        id: users.length + 1,
+        username,
+        email,
       };
-      elementos.push(novoElemento);
-      return novoElemento;
+      users.push(newUser);
+      pubsub.publish('USER_ADDED', { userAdded: newUser });
+      return newUser;
+    },
+    addActivity: (
+      _,
+      { time, type, distance, calories, bpm, user, userImage, likes, comments, imageUrl }
+    ) => {
+      const newActivity = {
+        id: activities.length + 1,
+        time,
+        type,
+        distance,
+        calories,
+        bpm,
+        user,
+        userImage,
+        likes,
+        comments,
+        imageUrl,
+      };
+      activities.push(newActivity);
+      pubsub.publish('ACTIVITY_ADDED', { activityAdded: newActivity });
+      return newActivity;
     },
   },
-  
+  Subscription: {
+    userAdded: {
+      subscribe: () => pubsub.asyncIterator(['USER_ADDED']),
+    },
+    activityAdded: {
+      subscribe: () => pubsub.asyncIterator(['ACTIVITY_ADDED']),
+    },
+  },
 };
 
-const server = new ApolloServer({ typeDefs, resolvers });
+// Configuração do servidor Apollo com Subscriptions
+async function startApolloServer(typeDefs, resolvers) {
+  const app = express();
+  app.use(cors()); // Adicionando middleware CORS
+  const httpServer = http.createServer(app);
 
-const app = express();
-server.start().then(res => {
-  server.applyMiddleware({ app });
+  const schema = makeExecutableSchema({ typeDefs, resolvers });
 
-  app.listen({ port: 4000 }, () =>
-    console.log(`🚀 Server ready at http://localhost:4000${server.graphqlPath}`)
+  const wsServer = new WebSocketServer({
+    server: httpServer,
+    path: '/graphql',
+  });
+
+  const serverCleanup = useServer({ schema }, wsServer);
+
+  const server = new ApolloServer({
+    schema,
+    plugins: [
+      ApolloServerPluginDrainHttpServer({ httpServer }),
+      {
+        async serverWillStart() {
+          return {
+            async drainServer() {
+              await serverCleanup.dispose();
+            },
+          };
+        },
+      },
+    ],
+  });
+
+  await server.start();
+
+  app.use('/graphql', json(), expressMiddleware(server));
+
+  const PORT = 4000;
+  httpServer.listen(PORT, () =>
+    console.log(`🚀 Server ready at http://localhost:${PORT}/graphql`),
   );
-});
+}
+
+startApolloServer(typeDefs, resolvers);
